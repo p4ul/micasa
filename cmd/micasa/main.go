@@ -29,6 +29,7 @@ type cli struct {
 	Config    configCmd        `cmd:""                    help:"Print the value of a config key."`
 	Incidents incidentsCmd     `cmd:""                    help:"Manage incidents."`
 	Projects  projectsCmd      `cmd:""                    help:"Manage projects."`
+	Quotes    quotesCmd        `cmd:""                    help:"Manage quotes."`
 	Version   kong.VersionFlag `                          help:"Show version and exit."           name:"version"`
 }
 
