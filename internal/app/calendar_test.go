@@ -344,6 +344,70 @@ func TestCalendarMoveMonthViaKeyboardClamps(t *testing.T) {
 		"navigating forward from Jan 31 should show February, not overflow to March")
 }
 
+func TestCalendarToday(t *testing.T) {
+	cal := &calendarState{
+		Cursor: time.Date(2020, 6, 15, 0, 0, 0, 0, time.Local),
+	}
+	calendarToday(cal)
+	assert.True(t, sameDay(cal.Cursor, time.Now()))
+}
+
+func TestCalendarTodayKeyNavigation(t *testing.T) {
+	m := newTestModel()
+	dateVal := "2020-06-15"
+	confirmed := false
+	m.openCalendar(&dateVal, func() { confirmed = true })
+	require.NotNil(t, m.calendar)
+	assert.Equal(t, 2020, m.calendar.Cursor.Year())
+
+	// Capture now before sending keys to avoid midnight-boundary flakes.
+	now := time.Now()
+
+	// Press t to jump to today, then enter to confirm.
+	sendKey(m, "t")
+	assert.True(t, sameDay(m.calendar.Cursor, now),
+		"pressing t should jump cursor to today")
+
+	sendKey(m, "enter")
+	assert.True(t, confirmed, "OnConfirm should have been called")
+	assert.Nil(t, m.calendar, "calendar should be dismissed")
+	assert.Equal(t, now.Format("2006-01-02"), dateVal,
+		"confirmed date should be today")
+}
+
+func TestCalendarTodayFromParsedCursor(t *testing.T) {
+	// openCalendar parses dates via time.ParseInLocation (local).
+	// Pressing "t" must land on the correct local day.
+	m := newTestModel()
+	dateVal := "2020-06-15"
+	m.openCalendar(&dateVal, nil)
+	require.NotNil(t, m.calendar)
+
+	// Parsed cursor should be in local timezone.
+	require.Equal(t, time.Local, m.calendar.Cursor.Location(),
+		"precondition: parsed date should be local")
+
+	sendKey(m, "t")
+	now := time.Now()
+	assert.Equal(t, now.Year(), m.calendar.Cursor.Year())
+	assert.Equal(t, now.Month(), m.calendar.Cursor.Month())
+	assert.Equal(t, now.Day(), m.calendar.Cursor.Day())
+	assert.Equal(t, time.Local, m.calendar.Cursor.Location(),
+		"cursor should be in local timezone after pressing t")
+}
+
+func TestOpenCalendarParsesInLocalTimezone(t *testing.T) {
+	m := newTestModel()
+	dateVal := "2026-02-15"
+	m.openCalendar(&dateVal, nil)
+	require.NotNil(t, m.calendar)
+
+	assert.Equal(t, time.Local, m.calendar.Cursor.Location(),
+		"parsed cursor should use local timezone")
+	assert.Equal(t, time.Local, m.calendar.Selected.Location(),
+		"parsed selected should use local timezone")
+}
+
 func TestOpenCalendarWithEmptyValue(t *testing.T) {
 	m := newTestModel()
 	dateVal := ""
