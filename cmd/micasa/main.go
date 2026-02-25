@@ -28,6 +28,7 @@ type cli struct {
 	Appliances  appliancesCmd    `cmd:""                    help:"Manage appliances."`
 	Backup      backupCmd        `cmd:""                    help:"Back up the database to a file."`
 	Config      configCmd        `cmd:""                    help:"Print the value of a config key."`
+	House       houseCmd         `cmd:""                    help:"Manage house profile."`
 	Incidents   incidentsCmd     `cmd:""                    help:"Manage incidents."`
 	Maintenance maintenanceCmd   `cmd:""                    help:"Manage maintenance items."`
 	Projects    projectsCmd      `cmd:""                    help:"Manage projects."`
