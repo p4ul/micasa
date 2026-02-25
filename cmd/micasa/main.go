@@ -27,6 +27,7 @@ type cli struct {
 	Run       runCmd           `cmd:"" default:"withargs" help:"Launch the TUI (default)."`
 	Backup    backupCmd        `cmd:""                    help:"Back up the database to a file."`
 	Config    configCmd        `cmd:""                    help:"Print the value of a config key."`
+	House     houseCmd         `cmd:""                    help:"Manage house profile."`
 	Incidents incidentsCmd     `cmd:""                    help:"Manage incidents."`
 	Version   kong.VersionFlag `                          help:"Show version and exit."           name:"version"`
 }
