@@ -66,3 +66,8 @@ target/
 # Claude local settings
 .claude/settings.local.json
 .claude/worktrees
+
+# Gas Town (added by gt)
+.runtime/
+.claude/commands/
+.logs/

@@ -777,6 +777,7 @@ func incidentStatusOptions() []huh.Option[string] {
 	statuses := []entry{
 		{data.IncidentStatusOpen, accent},
 		{data.IncidentStatusInProgress, success},
+		{data.IncidentStatusResolved, muted},
 	}
 	opts := make([]huh.Option[string], len(statuses))
 	for i, s := range statuses {

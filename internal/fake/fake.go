@@ -35,6 +35,7 @@ const (
 const (
 	IncidentStatusOpen       = "open"
 	IncidentStatusInProgress = "in_progress"
+	IncidentStatusResolved   = "resolved"
 )
 
 // Incident severities (mirrors data.IncidentSeverity* constants).
@@ -47,7 +48,7 @@ const (
 )
 
 var (
-	allIncidentStatuses   = []string{IncidentStatusOpen, IncidentStatusInProgress}
+	allIncidentStatuses   = []string{IncidentStatusOpen, IncidentStatusInProgress, IncidentStatusResolved}
 	allIncidentSeverities = []string{
 		IncidentSeverityUrgent,
 		IncidentSeveritySoon,

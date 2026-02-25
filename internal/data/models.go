@@ -82,6 +82,7 @@ const (
 const (
 	IncidentStatusOpen       = "open"
 	IncidentStatusInProgress = "in_progress"
+	IncidentStatusResolved   = "resolved"
 )
 
 const (
