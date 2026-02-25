@@ -268,7 +268,8 @@ func (m *Model) submitChat() tea.Cmd {
 	// Record in history for up/down browsing, deduplicating consecutive repeats.
 	if len(m.chat.History) == 0 || m.chat.History[len(m.chat.History)-1] != query {
 		m.chat.History = append(m.chat.History, query)
-		// Persist to database for cross-session history.
+		// Best-effort: persist for cross-session history. Primary chat
+		// flow succeeds regardless of persistence failure.
 		if m.store != nil {
 			_ = m.store.AppendChatInput(query)
 		}
@@ -593,7 +594,7 @@ func (m *Model) cmdSwitchModel(name string) tea.Cmd {
 	}
 
 	m.pullFromChat = true
-	m.pullDisplay = "checking " + name + "\u2026"
+	m.pullDisplay = "checking " + name + symEllipsis
 	m.resizeTables()
 
 	client := m.llmClient
@@ -601,6 +602,7 @@ func (m *Model) cmdSwitchModel(name string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
+		// Best-effort: if listing fails, fall through to pull attempt.
 		models, _ := client.ListModels(ctx)
 		for _, model := range models {
 			if model == name || strings.HasPrefix(model, name+":") {
@@ -702,7 +704,7 @@ func (m *Model) handleSQLResult(msg sqlResultMsg) tea.Cmd {
 	if msg.Err != nil {
 		// Fall back to single-stage: dump all data and ask directly.
 		m.chat.Messages = append(m.chat.Messages, chatMessage{
-			Role: roleNotice, Content: "falling back to direct query\u2026",
+			Role: roleNotice, Content: "falling back to direct query" + symEllipsis,
 		})
 		m.refreshChatViewport()
 		return m.startFallbackStream(msg.Question)
@@ -831,7 +833,7 @@ func (m *Model) toggleMagMode() {
 // sqlHintItem renders the ctrl+s hint with color indicating whether SQL
 // display is active: accent when on, dim when off.
 func (m *Model) sqlHintItem() string {
-	keycaps := m.renderKeys("ctrl+s")
+	keycaps := m.renderKeys(keyCtrlS)
 	label := "sql"
 	var style lipgloss.Style
 	if m.chat != nil && m.chat.ShowSQL {
@@ -1251,12 +1253,12 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// can edit and re-trigger.
 			m.deactivateCompleter()
 			return m, nil
-		case "up", "ctrl+p":
+		case keyUp, keyCtrlP:
 			if mc.Cursor > 0 {
 				mc.Cursor--
 			}
 			return m, nil
-		case "down", keyCtrlN:
+		case keyDown, keyCtrlN:
 			if mc.Cursor < len(mc.Matches)-1 {
 				mc.Cursor++
 			}
@@ -1270,7 +1272,7 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			m.deactivateCompleter()
 			return m, nil
-		case "ctrl+q":
+		case keyCtrlQ:
 			return m, tea.Quit
 		}
 	}
@@ -1284,22 +1286,22 @@ func (m *Model) handleChatKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.submitChat()
-	case "ctrl+s":
+	case keyCtrlS:
 		m.toggleSQL()
 		return m, nil
-	case "ctrl+o":
+	case keyCtrlO:
 		m.toggleMagMode()
 		return m, nil
-	case "ctrl+c":
+	case keyCtrlC:
 		// Handled by the global ctrl+c handler in model.Update which calls
 		// cancelChatOperations. This case is unreachable but kept for clarity.
 		return m, nil
-	case "up", "ctrl+p":
+	case keyUp, keyCtrlP:
 		if m.chat.Input.Focused() && !m.chat.Streaming {
 			m.historyBack()
 			return m, nil
 		}
-	case "down", keyCtrlN:
+	case keyDown, keyCtrlN:
 		if m.chat.Input.Focused() && !m.chat.Streaming {
 			m.historyForward()
 			return m, nil
@@ -1372,16 +1374,16 @@ func (m *Model) buildChatOverlay() string {
 	var hintParts []string
 	if m.chat.Completer != nil {
 		hintParts = append(hintParts,
-			m.helpItem("up/down", "navigate"),
-			m.helpItem("\u21b5", "select"),
-			m.helpItem("esc", "dismiss"),
+			m.helpItem(keyUp+"/"+keyDown, "navigate"),
+			m.helpItem(symReturn, "select"),
+			m.helpItem(keyEsc, "dismiss"),
 		)
 	} else {
 		hintParts = append(hintParts,
-			m.helpItem("\u21b5", "send"),
+			m.helpItem(symReturn, "send"),
 			m.sqlHintItem(),
-			m.helpItem("\u2191/\u2193", "history"),
-			m.helpItem("esc", "hide"),
+			m.helpItem(symUp+"/"+symDown, "history"),
+			m.helpItem(keyEsc, "hide"),
 		)
 	}
 	hints := joinWithSeparator(m.helpSeparator(), hintParts...)
@@ -1420,7 +1422,7 @@ func (m *Model) renderModelCompleter(innerW int) string {
 	lines := make([]string, completerMaxLines)
 
 	if mc.Loading {
-		lines[0] = m.styles.HeaderHint.Render("  loading models\u2026")
+		lines[0] = m.styles.HeaderHint.Render("  loading models" + symEllipsis)
 		for i := 1; i < completerMaxLines; i++ {
 			lines[i] = ""
 		}
@@ -1497,14 +1499,14 @@ func (m *Model) highlightModelMatch(match modelCompleterMatch) string {
 	var baseStyle, highlightStyle lipgloss.Style
 	switch {
 	case match.Active:
-		baseStyle = lipgloss.NewStyle().Foreground(accent).Bold(true)
-		highlightStyle = lipgloss.NewStyle().Foreground(accent).Bold(true).Underline(true)
+		baseStyle = m.styles.ModelActive
+		highlightStyle = m.styles.ModelActiveHL
 	case match.Local:
-		baseStyle = lipgloss.NewStyle().Foreground(textBright)
-		highlightStyle = lipgloss.NewStyle().Foreground(accent).Bold(true)
+		baseStyle = m.styles.ModelLocal
+		highlightStyle = m.styles.ModelLocalHL
 	default:
-		baseStyle = lipgloss.NewStyle().Foreground(textDim).Italic(true)
-		highlightStyle = lipgloss.NewStyle().Foreground(accent).Bold(true).Italic(true)
+		baseStyle = m.styles.ModelRemote
+		highlightStyle = m.styles.ModelRemoteHL
 	}
 
 	if len(match.Positions) == 0 {

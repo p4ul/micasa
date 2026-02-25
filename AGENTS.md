@@ -181,6 +181,9 @@ details; do not duplicate that detail here.
   (e.g. `origin/main`) even if no `upstream` remote exists.
 - **Modern CLI tools**: Use `rg` not `grep`, `fd` not `find`, `sd` not
   `sed` where possible.
+- **Read deps locally**: To read a dependency's source, look in the local
+  Go module cache (`go env GOMODCACHE`) instead of making web requests to
+  GitHub, curl, or other alternatives.
 
 ### Nix
 
@@ -195,6 +198,7 @@ details; do not duplicate that detail here.
   hardcode `/nix/store/...` hashes.
 - **Use `writeShellApplication`** not `writeShellScriptBin` for Nix shell
   scripts. Use **`pkgs.python3.pkgs`** not `pkgs.python3Packages`.
+- **Nix package mappings**: `benchstat` is in `nixpkgs#goperf`.
 
 ### Git and CI
 
@@ -240,6 +244,14 @@ details; do not duplicate that detail here.
   could tie MUST include a tiebreaker (typically `id DESC`).
 - **Audit new deps before adding**: Review source for security issues
   before integrating third-party dependencies.
+- **Styles live in `appStyles`**: Add new `lipgloss.Style` fields to the
+  `Styles` struct in `styles.go` and reference them via the package-level
+  `appStyles` singleton. Never inline `lipgloss.NewStyle()` in rendering
+  functions -- it defeats the singleton and reintroduces per-frame copies.
+- **Key strings use constants**: All keyboard key strings in dispatch
+  (`case`, `key.String() ==`), `key.WithKeys`, `SetKeys`, `helpItem`,
+  `renderKeys`, and display hints must use constants defined in
+  `internal/app/model.go`. Never introduce bare key string literals.
 
 ### UI/UX conventions
 

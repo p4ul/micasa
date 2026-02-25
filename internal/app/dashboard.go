@@ -231,7 +231,7 @@ func renderMiniTable(
 // an ellipsis if truncation occurs. Delegates to ansi.Truncate for correct
 // grapheme-cluster and wide-character handling.
 func truncateToWidth(text string, maxW int) string {
-	return ansi.Truncate(text, maxW, "\u2026")
+	return ansi.Truncate(text, maxW, symEllipsis)
 }
 
 // ---------------------------------------------------------------------------
@@ -254,7 +254,7 @@ func (m *Model) loadDashboardAt(now time.Time) error {
 		return fmt.Errorf("load maintenance: %w", err)
 	}
 	for _, item := range items {
-		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths)
+		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths, item.DueDate)
 		if nextDue == nil {
 			continue
 		}

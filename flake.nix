@@ -32,7 +32,7 @@
           inherit version;
           src = ./.;
           subPackages = [ "cmd/micasa" ];
-          vendorHash = "sha256-FZfMwtcVOZ8mkA1NHXitqwp5X/FTb1VxyKvoy5qEoPU=";
+          vendorHash = "sha256-pt5ASwHiHI/4SMmghdGRdz94cfZzW4l+MerdDdWbUss=";
           env.CGO_ENABLED = 0;
           preCheck = ''
             export HOME="$(mktemp -d)"
@@ -198,6 +198,7 @@
               pkgs.poppler-utils
               pkgs.imagemagick
               pkgs.gopls
+              pkgs.goreleaser
             ]
             ++ enabledPackages;
           };
@@ -359,7 +360,6 @@
             ];
             text = ''
               TAPES="docs/tapes"
-              ntapes=$(fd -g 'using-*.tape' . "$TAPES" | wc -l)
               ntapes=$(fd -g 'using-*.tape' . "$TAPES" | wc -l)
               if [[ "$ntapes" -eq 0 ]]; then
                 echo "no using-*.tape files found in $TAPES" >&2

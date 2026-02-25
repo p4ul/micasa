@@ -15,10 +15,10 @@ import (
 // page-up/page-down so those keys can be used for tab navigation.
 func baseTableKeyMap() table.KeyMap {
 	km := table.DefaultKeyMap()
-	km.PageDown.SetKeys("pgdown")
-	km.PageDown.SetHelp("pgdn", "page down")
-	km.PageUp.SetKeys("pgup")
-	km.PageUp.SetHelp("pgup", "page up")
+	km.PageDown.SetKeys(keyPgDown)
+	km.PageDown.SetHelp(keyPgDown, "page down")
+	km.PageUp.SetKeys(keyPgUp)
+	km.PageUp.SetHelp(keyPgUp, "page up")
 	return km
 }
 
@@ -31,10 +31,10 @@ func normalTableKeyMap() table.KeyMap {
 // bindings so they can be used for delete/undo without conflicting.
 func editTableKeyMap() table.KeyMap {
 	km := baseTableKeyMap()
-	km.HalfPageDown.SetKeys("ctrl+d")
-	km.HalfPageDown.SetHelp("ctrl+d", "½ page down")
-	km.HalfPageUp.SetKeys("ctrl+u")
-	km.HalfPageUp.SetHelp("ctrl+u", "½ page up")
+	km.HalfPageDown.SetKeys(keyCtrlD)
+	km.HalfPageDown.SetHelp(keyCtrlD, "½ page down")
+	km.HalfPageUp.SetKeys(keyCtrlU)
+	km.HalfPageUp.SetHelp(keyCtrlU, "½ page up")
 	return km
 }
 
@@ -48,7 +48,7 @@ func (m *Model) setAllTableKeyMaps(km table.KeyMap) {
 	}
 }
 
-func NewTabs(styles Styles) []Tab {
+func NewTabs() []Tab {
 	projectSpecs := projectColumnSpecs()
 	quoteSpecs := quoteColumnSpecs()
 	maintenanceSpecs := maintenanceColumnSpecs()
@@ -62,28 +62,28 @@ func NewTabs(styles Styles) []Tab {
 			Name:    "Projects",
 			Handler: projectHandler{},
 			Specs:   projectSpecs,
-			Table:   newTable(specsToColumns(projectSpecs), styles),
+			Table:   newTable(specsToColumns(projectSpecs)),
 		},
 		{
 			Kind:    tabQuotes,
 			Name:    tabQuotes.String(),
 			Handler: quoteHandler{},
 			Specs:   quoteSpecs,
-			Table:   newTable(specsToColumns(quoteSpecs), styles),
+			Table:   newTable(specsToColumns(quoteSpecs)),
 		},
 		{
 			Kind:    tabMaintenance,
 			Name:    "Maintenance",
 			Handler: maintenanceHandler{},
 			Specs:   maintenanceSpecs,
-			Table:   newTable(specsToColumns(maintenanceSpecs), styles),
+			Table:   newTable(specsToColumns(maintenanceSpecs)),
 		},
 		{
 			Kind:        tabIncidents,
 			Name:        tabIncidents.String(),
 			Handler:     incidentHandler{},
 			Specs:       incidentSpecs,
-			Table:       newTable(specsToColumns(incidentSpecs), styles),
+			Table:       newTable(specsToColumns(incidentSpecs)),
 			ShowDeleted: true,
 		},
 		{
@@ -91,21 +91,21 @@ func NewTabs(styles Styles) []Tab {
 			Name:    "Appliances",
 			Handler: applianceHandler{},
 			Specs:   applianceSpecs,
-			Table:   newTable(specsToColumns(applianceSpecs), styles),
+			Table:   newTable(specsToColumns(applianceSpecs)),
 		},
 		{
 			Kind:    tabVendors,
 			Name:    "Vendors",
 			Handler: vendorHandler{},
 			Specs:   vendorSpecs,
-			Table:   newTable(specsToColumns(vendorSpecs), styles),
+			Table:   newTable(specsToColumns(vendorSpecs)),
 		},
 		{
 			Kind:    tabDocuments,
 			Name:    tabDocuments.String(),
 			Handler: documentHandler{},
 			Specs:   documentSpecs,
-			Table:   newTable(specsToColumns(documentSpecs), styles),
+			Table:   newTable(specsToColumns(documentSpecs)),
 		},
 	}
 }
@@ -354,7 +354,7 @@ func applianceMaintenanceRows(
 	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(item data.MaintenanceItem) rowSpec {
-		interval := formatInterval(item.IntervalMonths)
+		intervalCell := maintenanceIntervalCell(item)
 		logCount := "0"
 		if n := logCounts[item.ID]; n > 0 {
 			logCount = fmt.Sprintf("%d", n)
@@ -363,7 +363,7 @@ func applianceMaintenanceRows(
 		if n := docCounts[item.ID]; n > 0 {
 			docCount = fmt.Sprintf("%d", n)
 		}
-		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths)
+		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths, item.DueDate)
 		return rowSpec{
 			ID:      item.ID,
 			Deleted: item.DeletedAt.Valid,
@@ -373,7 +373,7 @@ func applianceMaintenanceRows(
 				{Value: item.Category.Name, Kind: cellText},
 				dateCell(item.LastServicedAt, cellDate),
 				dateCell(nextDue, cellUrgency),
-				{Value: interval, Kind: cellText},
+				intervalCell,
 				{Value: logCount, Kind: cellDrilldown},
 				{Value: docCount, Kind: cellDrilldown},
 			},
@@ -481,6 +481,16 @@ func applianceRows(
 
 // formatInterval returns a compact interval string: "3m", "1y", "2y 6m".
 // Returns empty for non-positive values.
+// maintenanceIntervalCell returns the cell for the "Every" column.
+// Items with no interval return a NULL cell.
+func maintenanceIntervalCell(item data.MaintenanceItem) cell {
+	v := formatInterval(item.IntervalMonths)
+	if v == "" {
+		return cell{Kind: cellText, Null: true}
+	}
+	return cell{Value: v, Kind: cellText}
+}
+
 func formatInterval(months int) string {
 	if months <= 0 {
 		return ""
@@ -602,14 +612,14 @@ func specsToColumns(specs []columnSpec) []table.Column {
 	return cols
 }
 
-func newTable(columns []table.Column, styles Styles) table.Model {
+func newTable(columns []table.Column) table.Model {
 	tbl := table.New(
 		table.WithColumns(columns),
 		table.WithFocused(true),
 	)
 	tbl.SetStyles(table.Styles{
-		Header:   styles.TableHeader,
-		Selected: styles.TableSelected,
+		Header:   appStyles.TableHeader,
+		Selected: appStyles.TableSelected,
 	})
 	return tbl
 }
@@ -684,7 +694,7 @@ func maintenanceRows(
 	docCounts map[uint]int,
 ) ([]table.Row, []rowMeta, [][]cell) {
 	return buildRows(items, func(item data.MaintenanceItem) rowSpec {
-		interval := formatInterval(item.IntervalMonths)
+		intervalCell := maintenanceIntervalCell(item)
 		var appCell cell
 		if item.ApplianceID != nil {
 			appCell = cell{Value: item.Appliance.Name, Kind: cellText, LinkID: *item.ApplianceID}
@@ -699,7 +709,7 @@ func maintenanceRows(
 		if n := docCounts[item.ID]; n > 0 {
 			docCount = fmt.Sprintf("%d", n)
 		}
-		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths)
+		nextDue := data.ComputeNextDue(item.LastServicedAt, item.IntervalMonths, item.DueDate)
 		return rowSpec{
 			ID:      item.ID,
 			Deleted: item.DeletedAt.Valid,
@@ -710,7 +720,7 @@ func maintenanceRows(
 				appCell,
 				dateCell(item.LastServicedAt, cellDate),
 				dateCell(nextDue, cellUrgency),
-				{Value: interval, Kind: cellText},
+				intervalCell,
 				{Value: logCount, Kind: cellDrilldown},
 				{Value: docCount, Kind: cellDrilldown},
 			},

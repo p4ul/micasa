@@ -115,10 +115,10 @@ func (m *Model) houseArt() string {
 	if m.effectiveWidth() < 80 {
 		return ""
 	}
-	rf := lipgloss.NewStyle().Foreground(accent)    // roof
-	wl := lipgloss.NewStyle().Foreground(textMid)   // walls
-	wn := lipgloss.NewStyle().Foreground(warning)   // windows (lit)
-	dr := lipgloss.NewStyle().Foreground(secondary) // door
+	rf := m.styles.HouseRoof   // roof
+	wl := m.styles.HouseWall   // walls
+	wn := m.styles.HouseWindow // windows (lit)
+	dr := m.styles.HouseDoor   // door
 	lines := []string{
 		rf.Render("      ▄▓▄"),
 		rf.Render("    ▄▓▓▓▓▓▄"),
@@ -204,14 +204,14 @@ func sqftLabel(sqft int) string {
 	if sqft == 0 {
 		return ""
 	}
-	return fmt.Sprintf("%s ft\u00B2", humanize.Comma(int64(sqft)))
+	return fmt.Sprintf("%s ft%s", humanize.Comma(int64(sqft)), symSuperTwo)
 }
 
 func lotLabel(sqft int) string {
 	if sqft == 0 {
 		return ""
 	}
-	return fmt.Sprintf("%s ft\u00B2 lot", humanize.Comma(int64(sqft)))
+	return fmt.Sprintf("%s ft%s lot", humanize.Comma(int64(sqft)), symSuperTwo)
 }
 
 func formatInt(value int) string {

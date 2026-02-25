@@ -78,12 +78,22 @@ type quoteFormData struct {
 	Notes        string
 }
 
+type scheduleType int
+
+const (
+	schedNone scheduleType = iota
+	schedInterval
+	schedDueDate
+)
+
 type maintenanceFormData struct {
 	Name           string
 	CategoryID     uint
 	ApplianceID    uint // 0 means none
+	ScheduleType   scheduleType
 	LastServiced   string
 	IntervalMonths string
+	DueDate        string
 	ManualURL      string
 	ManualText     string
 	Cost           string
@@ -428,13 +438,24 @@ func (m *Model) openQuoteForm(values *quoteFormData, projectOpts []huh.Option[ui
 	m.activateForm(formQuote, form, values)
 }
 
-func (m *Model) startMaintenanceForm() {
-	values := &maintenanceFormData{}
+func scheduleTypeOptions() []huh.Option[scheduleType] {
+	return []huh.Option[scheduleType]{
+		huh.NewOption("None", schedNone),
+		huh.NewOption("Recurring interval", schedInterval),
+		huh.NewOption("Fixed due date", schedDueDate),
+	}
+}
+
+func (m *Model) startMaintenanceForm() error {
+	values := &maintenanceFormData{ScheduleType: schedNone}
 	catOptions := maintenanceOptions(m.maintenanceCategories)
 	if len(catOptions) > 0 {
 		values.CategoryID = catOptions[0].Value
 	}
-	appliances, _ := m.store.ListAppliances(false)
+	appliances, err := m.store.ListAppliances(false)
+	if err != nil {
+		return fmt.Errorf("list appliances: %w", err)
+	}
 	appOpts := applianceOptions(appliances)
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -450,15 +471,27 @@ func (m *Model) startMaintenanceForm() {
 				Title("Appliance").
 				Options(appOpts...).
 				Value(&values.ApplianceID),
+			huh.NewSelect[scheduleType]().
+				Title("Schedule").
+				Options(scheduleTypeOptions()...).
+				Value(&values.ScheduleType),
+		),
+		huh.NewGroup(
 			huh.NewInput().
 				Title("Interval").
-				Description("e.g. 6 (months), 6m, 1y, 2y 6m; blank for one-time").
 				Placeholder("6m").
 				Value(&values.IntervalMonths).
 				Validate(optionalInterval("interval")),
-		),
+		).WithHideFunc(func() bool { return values.ScheduleType != schedInterval }),
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Due date (YYYY-MM-DD)").
+				Value(&values.DueDate).
+				Validate(optionalDate("due date")),
+		).WithHideFunc(func() bool { return values.ScheduleType != schedDueDate }),
 	)
 	m.activateForm(formMaintenance, form, values)
+	return nil
 }
 
 func (m *Model) startEditMaintenanceForm(id uint) error {
@@ -468,7 +501,10 @@ func (m *Model) startEditMaintenanceForm(id uint) error {
 	}
 	values := maintenanceFormValues(item)
 	options := maintenanceOptions(m.maintenanceCategories)
-	appliances, _ := m.store.ListAppliances(false)
+	appliances, err := m.store.ListAppliances(false)
+	if err != nil {
+		return fmt.Errorf("list appliances: %w", err)
+	}
 	appOpts := applianceOptions(appliances)
 	m.editID = &id
 	m.openMaintenanceForm(values, options, appOpts)
@@ -498,13 +534,24 @@ func (m *Model) openMaintenanceForm(
 				Title("Last serviced (YYYY-MM-DD)").
 				Value(&values.LastServiced).
 				Validate(optionalDate("last serviced")),
+			huh.NewSelect[scheduleType]().
+				Title("Schedule").
+				Options(scheduleTypeOptions()...).
+				Value(&values.ScheduleType),
+		).Title("Schedule"),
+		huh.NewGroup(
 			huh.NewInput().
 				Title("Interval").
-				Description("e.g. 6 (months), 6m, 1y, 2y 6m; blank for one-time").
 				Placeholder("6m").
 				Value(&values.IntervalMonths).
 				Validate(optionalInterval("interval")),
-		).Title("Schedule"),
+		).WithHideFunc(func() bool { return values.ScheduleType != schedInterval }),
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Due date (YYYY-MM-DD)").
+				Value(&values.DueDate).
+				Validate(optionalDate("due date")),
+		).WithHideFunc(func() bool { return values.ScheduleType != schedDueDate }),
 		huh.NewGroup(
 			huh.NewInput().Title("Manual URL").Value(&values.ManualURL),
 			huh.NewText().Title("Manual notes").Value(&values.ManualText),
@@ -519,13 +566,16 @@ func (m *Model) openMaintenanceForm(
 	m.activateForm(formMaintenance, form, values)
 }
 
-func (m *Model) startIncidentForm() {
+func (m *Model) startIncidentForm() error {
 	values := &incidentFormData{
 		Status:      data.IncidentStatusOpen,
 		Severity:    data.IncidentSeveritySoon,
 		DateNoticed: time.Now().Format(data.DateLayout),
 	}
-	appliances, _ := m.store.ListAppliances(false)
+	appliances, err := m.store.ListAppliances(false)
+	if err != nil {
+		return fmt.Errorf("list appliances: %w", err)
+	}
 	appOpts := applianceOptions(appliances)
 	vendorOpts := optionalVendorOptions(m.vendors)
 	form := huh.NewForm(
@@ -559,6 +609,7 @@ func (m *Model) startIncidentForm() {
 		).Title("Links"),
 	)
 	m.activateForm(formIncident, form, values)
+	return nil
 }
 
 func (m *Model) startEditIncidentForm(id uint) error {
@@ -567,7 +618,10 @@ func (m *Model) startEditIncidentForm(id uint) error {
 		return fmt.Errorf("load incident: %w", err)
 	}
 	values := incidentFormValues(item)
-	appliances, _ := m.store.ListAppliances(false)
+	appliances, err := m.store.ListAppliances(false)
+	if err != nil {
+		return fmt.Errorf("list appliances: %w", err)
+	}
 	appOpts := applianceOptions(appliances)
 	vendorOpts := optionalVendorOptions(m.vendors)
 	m.editID = &id
@@ -1204,6 +1258,8 @@ func (m *Model) inlineEditMaintenance(id uint, col maintenanceCol) error {
 	case maintenanceColLast:
 		m.openDatePicker(id, formMaintenance, &values.LastServiced, values)
 	case maintenanceColEvery:
+		values.ScheduleType = schedInterval
+		values.DueDate = ""
 		m.openInlineInput(
 			id,
 			formMaintenance,
@@ -1213,7 +1269,11 @@ func (m *Model) inlineEditMaintenance(id uint, col maintenanceCol) error {
 			optionalInterval("interval"),
 			values,
 		)
-	case maintenanceColID, maintenanceColNext, maintenanceColLog, maintenanceColDocs:
+	case maintenanceColNext:
+		values.ScheduleType = schedDueDate
+		values.IntervalMonths = ""
+		m.openDatePicker(id, formMaintenance, &values.DueDate, values)
+	case maintenanceColID, maintenanceColLog, maintenanceColDocs:
 		return m.startEditMaintenanceForm(id)
 	}
 	return nil
@@ -1431,7 +1491,7 @@ func requiredDate(label string) func(string) error {
 			return fmt.Errorf("%s is required", label)
 		}
 		if _, err := data.ParseRequiredDate(input); err != nil {
-			return fmt.Errorf("%s should be YYYY-MM-DD", label)
+			return fmt.Errorf("%s should be YYYY-MM-DD or a relative date like 'yesterday'", label)
 		}
 		return nil
 	}
@@ -1725,8 +1785,8 @@ func formTheme() *huh.Theme {
 
 func formKeyMap() *huh.KeyMap {
 	keymap := huh.NewDefaultKeyMap()
-	keymap.Quit.SetKeys("esc")
-	keymap.Quit.SetHelp("esc", "cancel")
+	keymap.Quit.SetKeys(keyEsc)
+	keymap.Quit.SetHelp(keyEsc, "cancel")
 	return keymap
 }
 
@@ -1959,10 +2019,26 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 	if err != nil {
 		return data.MaintenanceItem{}, err
 	}
-	interval, err := data.ParseIntervalMonths(values.IntervalMonths)
-	if err != nil {
-		return data.MaintenanceItem{}, err
+
+	// The schedule type selector enforces mutual exclusion at the UI level:
+	// only the field matching the selected type is parsed.
+	var interval int
+	var dueDate *time.Time
+
+	switch values.ScheduleType {
+	case schedNone:
+	case schedInterval:
+		interval, err = data.ParseIntervalMonths(values.IntervalMonths)
+		if err != nil {
+			return data.MaintenanceItem{}, err
+		}
+	case schedDueDate:
+		dueDate, err = data.ParseOptionalDate(values.DueDate)
+		if err != nil {
+			return data.MaintenanceItem{}, err
+		}
 	}
+
 	cost, err := data.ParseOptionalCents(values.Cost)
 	if err != nil {
 		return data.MaintenanceItem{}, err
@@ -1977,6 +2053,7 @@ func (m *Model) parseMaintenanceFormData() (data.MaintenanceItem, error) {
 		ApplianceID:    appID,
 		LastServicedAt: lastServiced,
 		IntervalMonths: interval,
+		DueDate:        dueDate,
 		ManualURL:      strings.TrimSpace(values.ManualURL),
 		ManualText:     strings.TrimSpace(values.ManualText),
 		CostCents:      cost,
@@ -2097,16 +2174,15 @@ func endDateAfterStart(startDate, endDate *string) func(string) error {
 		if end == "" || start == "" {
 			return nil
 		}
-		s, err := time.Parse(data.DateLayout, start)
-		if err != nil {
-			// start date will be caught by its own validator
+		s, err := data.ParseOptionalDate(start)
+		if err != nil || s == nil {
 			return nil //nolint:nilerr // start date validated by its own field
 		}
-		e, err := time.Parse(data.DateLayout, end)
-		if err != nil {
+		e, err := data.ParseOptionalDate(end)
+		if err != nil || e == nil {
 			return nil //nolint:nilerr // end date format already checked by optionalDate above
 		}
-		if e.Before(s) {
+		if e.Before(*s) {
 			return fmt.Errorf("end date must not be before start date")
 		}
 		return nil
@@ -2116,7 +2192,7 @@ func endDateAfterStart(startDate, endDate *string) func(string) error {
 func optionalDate(label string) func(string) error {
 	return func(input string) error {
 		if _, err := data.ParseOptionalDate(input); err != nil {
-			return fmt.Errorf("%s should be YYYY-MM-DD", label)
+			return fmt.Errorf("%s should be YYYY-MM-DD or a relative date like 'yesterday'", label)
 		}
 		return nil
 	}
@@ -2183,12 +2259,21 @@ func maintenanceFormValues(item data.MaintenanceItem) *maintenanceFormData {
 	if item.ApplianceID != nil {
 		appID = *item.ApplianceID
 	}
+	sched := schedNone
+	switch {
+	case item.IntervalMonths > 0:
+		sched = schedInterval
+	case item.DueDate != nil:
+		sched = schedDueDate
+	}
 	return &maintenanceFormData{
 		Name:           item.Name,
 		CategoryID:     item.CategoryID,
 		ApplianceID:    appID,
+		ScheduleType:   sched,
 		LastServiced:   data.FormatDate(item.LastServicedAt),
 		IntervalMonths: formatInterval(item.IntervalMonths),
+		DueDate:        data.FormatDate(item.DueDate),
 		ManualURL:      item.ManualURL,
 		ManualText:     item.ManualText,
 		Cost:           data.FormatOptionalCents(item.CostCents),
@@ -2385,8 +2470,8 @@ func (m *Model) newDocumentFilePicker(title string) *huh.FilePicker {
 	return huh.NewFilePicker().
 		Key(title).
 		Title(title + " " + short).
-		Description("h/\u2190 back \u00b7 enter open").
-		Cursor("\u25b8").
+		Description(keyH + "/" + symLeft + " back " + symMiddleDot + " " + keyEnter + " open").
+		Cursor(symTriRightSm).
 		CurrentDirectory(dir).
 		Picking(true).
 		FileAllowed(true).
@@ -2530,6 +2615,7 @@ func (m *Model) showTesseractHint() {
 		return
 	}
 	m.setStatusInfo("install tesseract for text extraction from scanned docs")
+	// Best-effort: hint reappears next session if persist fails.
 	_ = m.store.MarkTesseractHintSeen()
 }
 

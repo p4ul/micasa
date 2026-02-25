@@ -16,12 +16,11 @@ import (
 const testDate = "2026-02-15"
 
 func TestCalendarGridRendersMonth(t *testing.T) {
-	styles := DefaultStyles()
 	cal := calendarState{
 		Cursor:   time.Date(2026, 2, 15, 0, 0, 0, 0, time.Local),
 		HasValue: false,
 	}
-	grid := calendarGrid(cal, styles)
+	grid := calendarGrid(cal)
 	assert.Contains(t, grid, "February 2026")
 	assert.Contains(t, grid, "Su Mo Tu We Th Fr Sa")
 	// Feb 2026 has 28 days.
@@ -114,7 +113,7 @@ func TestCalendarKeyNavigation(t *testing.T) {
 	sendKey(m, "k")
 	assert.Equal(t, 15, m.calendar.Cursor.Day())
 
-	grid := calendarGrid(*m.calendar, m.styles)
+	grid := calendarGrid(*m.calendar)
 	assert.Contains(t, grid, "February 2026", "should still show February after navigation")
 }
 
@@ -195,14 +194,14 @@ func TestCalendarMonthNavigation(t *testing.T) {
 	// H = previous month -- grid should show January.
 	sendKey(m, "H")
 	assert.Equal(t, time.January, m.calendar.Cursor.Month())
-	grid := calendarGrid(*m.calendar, m.styles)
+	grid := calendarGrid(*m.calendar)
 	assert.Contains(t, grid, "January 2026")
 
 	// L = next month twice -- grid should show March.
 	sendKey(m, "L")
 	sendKey(m, "L")
 	assert.Equal(t, time.March, m.calendar.Cursor.Month())
-	grid = calendarGrid(*m.calendar, m.styles)
+	grid = calendarGrid(*m.calendar)
 	assert.Contains(t, grid, "March 2026")
 }
 
@@ -219,12 +218,11 @@ func TestCalendarYearNavigation(t *testing.T) {
 }
 
 func TestCalendarGridColumnAlignment(t *testing.T) {
-	styles := DefaultStyles()
 	cal := calendarState{
 		Cursor:   time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local),
 		HasValue: false,
 	}
-	grid := calendarGrid(cal, styles)
+	grid := calendarGrid(cal)
 
 	lines := strings.Split(grid, "\n")
 	labelIdx := -1
@@ -257,22 +255,20 @@ func TestCalendarGridColumnAlignment(t *testing.T) {
 }
 
 func TestCalendarFixedHeight(t *testing.T) {
-	styles := DefaultStyles()
 	feb := calendarGrid(calendarState{
 		Cursor: time.Date(2026, 2, 1, 0, 0, 0, 0, time.Local),
-	}, styles)
+	})
 	aug := calendarGrid(calendarState{
 		Cursor: time.Date(2026, 8, 1, 0, 0, 0, 0, time.Local),
-	}, styles)
+	})
 
 	assert.Equal(t, lipgloss.Height(feb), lipgloss.Height(aug), "calendar height should be fixed")
 }
 
 func TestCalendarHintsOnLeft(t *testing.T) {
-	styles := DefaultStyles()
 	grid := calendarGrid(calendarState{
 		Cursor: time.Date(2026, 2, 15, 0, 0, 0, 0, time.Local),
-	}, styles)
+	})
 
 	lines := strings.Split(grid, "\n")
 	foundHint := false
@@ -339,9 +335,73 @@ func TestCalendarMoveMonthViaKeyboardClamps(t *testing.T) {
 	sendKey(m, "L") // next month
 	assert.Equal(t, time.February, m.calendar.Cursor.Month())
 	assert.Equal(t, 28, m.calendar.Cursor.Day())
-	grid := calendarGrid(*m.calendar, m.styles)
+	grid := calendarGrid(*m.calendar)
 	assert.Contains(t, grid, "February 2025",
 		"navigating forward from Jan 31 should show February, not overflow to March")
+}
+
+func TestCalendarToday(t *testing.T) {
+	cal := &calendarState{
+		Cursor: time.Date(2020, 6, 15, 0, 0, 0, 0, time.Local),
+	}
+	calendarToday(cal)
+	assert.True(t, sameDay(cal.Cursor, time.Now()))
+}
+
+func TestCalendarTodayKeyNavigation(t *testing.T) {
+	m := newTestModel()
+	dateVal := "2020-06-15"
+	confirmed := false
+	m.openCalendar(&dateVal, func() { confirmed = true })
+	require.NotNil(t, m.calendar)
+	assert.Equal(t, 2020, m.calendar.Cursor.Year())
+
+	// Capture now before sending keys to avoid midnight-boundary flakes.
+	now := time.Now()
+
+	// Press t to jump to today, then enter to confirm.
+	sendKey(m, "t")
+	assert.True(t, sameDay(m.calendar.Cursor, now),
+		"pressing t should jump cursor to today")
+
+	sendKey(m, "enter")
+	assert.True(t, confirmed, "OnConfirm should have been called")
+	assert.Nil(t, m.calendar, "calendar should be dismissed")
+	assert.Equal(t, now.Format("2006-01-02"), dateVal,
+		"confirmed date should be today")
+}
+
+func TestCalendarTodayFromParsedCursor(t *testing.T) {
+	// openCalendar parses dates via time.ParseInLocation (local).
+	// Pressing "t" must land on the correct local day.
+	m := newTestModel()
+	dateVal := "2020-06-15"
+	m.openCalendar(&dateVal, nil)
+	require.NotNil(t, m.calendar)
+
+	// Parsed cursor should be in local timezone.
+	require.Equal(t, time.Local, m.calendar.Cursor.Location(),
+		"precondition: parsed date should be local")
+
+	sendKey(m, "t")
+	now := time.Now()
+	assert.Equal(t, now.Year(), m.calendar.Cursor.Year())
+	assert.Equal(t, now.Month(), m.calendar.Cursor.Month())
+	assert.Equal(t, now.Day(), m.calendar.Cursor.Day())
+	assert.Equal(t, time.Local, m.calendar.Cursor.Location(),
+		"cursor should be in local timezone after pressing t")
+}
+
+func TestOpenCalendarParsesInLocalTimezone(t *testing.T) {
+	m := newTestModel()
+	dateVal := "2026-02-15"
+	m.openCalendar(&dateVal, nil)
+	require.NotNil(t, m.calendar)
+
+	assert.Equal(t, time.Local, m.calendar.Cursor.Location(),
+		"parsed cursor should use local timezone")
+	assert.Equal(t, time.Local, m.calendar.Selected.Location(),
+		"parsed selected should use local timezone")
 }
 
 func TestOpenCalendarWithEmptyValue(t *testing.T) {
