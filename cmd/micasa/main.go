@@ -24,13 +24,14 @@ import (
 var version = "dev"
 
 type cli struct {
-	Run       runCmd           `cmd:"" default:"withargs" help:"Launch the TUI (default)."`
-	Backup    backupCmd        `cmd:""                    help:"Back up the database to a file."`
-	Config    configCmd        `cmd:""                    help:"Print the value of a config key."`
-	Incidents incidentsCmd     `cmd:""                    help:"Manage incidents."`
-	Projects  projectsCmd      `cmd:""                    help:"Manage projects."`
-	Quotes    quotesCmd        `cmd:""                    help:"Manage quotes."`
-	Version   kong.VersionFlag `                          help:"Show version and exit."           name:"version"`
+	Run         runCmd           `cmd:"" default:"withargs" help:"Launch the TUI (default)."`
+	Backup      backupCmd        `cmd:""                    help:"Back up the database to a file."`
+	Config      configCmd        `cmd:""                    help:"Print the value of a config key."`
+	Incidents   incidentsCmd     `cmd:""                    help:"Manage incidents."`
+	Maintenance maintenanceCmd   `cmd:""                    help:"Manage maintenance items."`
+	Projects    projectsCmd      `cmd:""                    help:"Manage projects."`
+	Quotes      quotesCmd        `cmd:""                    help:"Manage quotes."`
+	Version     kong.VersionFlag `                          help:"Show version and exit."           name:"version"`
 }
 
 type runCmd struct {
