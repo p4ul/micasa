@@ -16,6 +16,26 @@
 
 Your house is quietly plotting to break while you sleep -- and you're dreaming about redoing the kitchen. `micasa` tracks both from your terminal.
 
+## Installing from this fork
+
+This is a fork of [cpcloud/micasa](https://github.com/cpcloud/micasa). `brew install micasa` installs the upstream version, so use one of these methods instead.
+
+**Release binaries** (easiest) -- grab the archive for your OS and architecture from the [latest release](https://github.com/p4ul/micasa/releases/latest), extract it, and place `micasa` on your `PATH`.
+
+**`go install`:**
+
+```sh
+go install github.com/p4ul/micasa/cmd/micasa@latest
+```
+
+**Build from source:**
+
+```sh
+git clone https://github.com/p4ul/micasa.git
+cd micasa
+go build -o micasa ./cmd/micasa
+```
+
 > Single SQLite file. No cloud. No account. No subscriptions.
 
 <div align="center">
