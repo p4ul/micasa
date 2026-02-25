@@ -22,6 +22,32 @@ Your house is quietly plotting to break while you sleep -- and you're dreaming a
   <img src="images/demo.webp" alt="micasa demo" width="800">
 </div>
 
+## Install (fork)
+
+This is a [fork](https://github.com/p4ul/micasa) of [cpcloud/micasa](https://github.com/cpcloud/micasa). `brew install micasa` installs the upstream -- use one of these instead.
+
+**Release binary** (easiest) -- download from [p4ul/micasa releases](https://github.com/p4ul/micasa/releases/latest), extract, and put `micasa` on your `PATH`.
+
+**go install** (from source):
+
+```sh
+git clone https://github.com/p4ul/micasa.git && cd micasa
+go install ./cmd/micasa
+```
+
+**go build** (local binary):
+
+```sh
+git clone https://github.com/p4ul/micasa.git && cd micasa
+go build -o micasa ./cmd/micasa
+```
+
+```sh
+micasa --demo         # poke around with sample data
+micasa                # start fresh with your own house
+micasa --print-path   # show where the database lives
+```
+
 ## Features
 
 - **When did I last change the furnace filter?** Maintenance schedules, auto-computed due dates, full service history.
@@ -46,32 +72,6 @@ Ask questions about your home data in plain English. micasa connects to a local 
 The model has access to your schema and actual database values, so it can handle fuzzy references like "plumbing stuff" or "planned projects." Toggle `ctrl+s` to see the generated SQL, or `ctrl+o` for [mag mode](https://magworld.pw) that replaces dollar amounts with their order of magnitude.
 
 See the [LLM chat guide](https://micasa.dev/docs/guide/llm-chat/) and [configuration reference](https://micasa.dev/docs/reference/configuration/) for setup.
-
-## Install
-
-[Homebrew](https://brew.sh) (macOS and Linux):
-
-```sh
-brew install micasa
-```
-
-Or with Go (1.25+):
-
-```sh
-go install github.com/cpcloud/micasa/cmd/micasa@latest
-```
-
-Or grab a binary from the [latest release](https://github.com/cpcloud/micasa/releases/latest). Linux, macOS, and Windows binaries are available for amd64 and arm64.
-
-```sh
-micasa --demo         # poke around with sample data
-micasa                # start fresh with your own house
-micasa --print-path   # show where the database lives
-```
-
-> One SQLite file. Your data, your machine. Back it up with `cp`.
-
-Need Nix or container install options? See the full [installation guide](https://micasa.dev/docs/getting-started/installation/).
 
 ## Documentation
 
