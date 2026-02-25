@@ -28,6 +28,7 @@ type cli struct {
 	Backup    backupCmd        `cmd:""                    help:"Back up the database to a file."`
 	Config    configCmd        `cmd:""                    help:"Print the value of a config key."`
 	Incidents incidentsCmd     `cmd:""                    help:"Manage incidents."`
+	Settings  settingsCmd      `cmd:""                    help:"Manage unit and currency settings."`
 	Version   kong.VersionFlag `                          help:"Show version and exit."           name:"version"`
 }
 
