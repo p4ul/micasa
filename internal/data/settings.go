@@ -6,6 +6,7 @@ package data
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -33,6 +34,18 @@ const (
 	settingLLMModel          = "llm.model"
 	settingShowDashboard     = "ui.show_dashboard"
 	settingTesseractHintSeen = "hint.tesseract_shown"
+	settingUnitSystem        = "units.system"
+	settingCurrency          = "units.currency"
+
+	// UnitSystemMetric represents the metric unit system.
+	UnitSystemMetric = "metric"
+	// UnitSystemImperial represents the imperial unit system.
+	UnitSystemImperial = "imperial"
+
+	// DefaultUnitSystem is the default when no preference is stored.
+	DefaultUnitSystem = UnitSystemMetric
+	// DefaultCurrency is the default ISO 4217 currency code.
+	DefaultCurrency = "NZD"
 
 	// chatHistoryMax is the maximum number of chat inputs retained.
 	chatHistoryMax = 200
@@ -101,6 +114,92 @@ func (s *Store) TesseractHintSeen() bool {
 // MarkTesseractHintSeen records that the tesseract hint was shown.
 func (s *Store) MarkTesseractHintSeen() error {
 	return s.PutSetting(settingTesseractHintSeen, "true")
+}
+
+// ValidUnitSystems is the set of accepted unit system values.
+var ValidUnitSystems = []string{UnitSystemMetric, UnitSystemImperial}
+
+// ValidCurrencies is the set of accepted ISO 4217 currency codes.
+var ValidCurrencies = []string{
+	"AUD", "CAD", "CHF", "CNY", "EUR", "GBP", "JPY", "NZD", "USD",
+}
+
+// ValidateUnitSystem returns an error if s is not a recognised unit system.
+func ValidateUnitSystem(s string) error {
+	for _, v := range ValidUnitSystems {
+		if s == v {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid unit system %q (want %s)", s, strings.Join(ValidUnitSystems, "|"))
+}
+
+// ValidateCurrency returns an error if code is not a supported ISO 4217 code.
+func ValidateCurrency(code string) error {
+	upper := strings.ToUpper(code)
+	for _, v := range ValidCurrencies {
+		if upper == v {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid currency %q (want %s)", code, strings.Join(ValidCurrencies, "|"))
+}
+
+// GetUnitSystem returns the persisted unit system, or DefaultUnitSystem.
+func (s *Store) GetUnitSystem() (string, error) {
+	val, err := s.GetSetting(settingUnitSystem)
+	if err != nil {
+		return DefaultUnitSystem, err
+	}
+	if val == "" {
+		return DefaultUnitSystem, nil
+	}
+	return val, nil
+}
+
+// PutUnitSystem validates and persists the unit system preference.
+func (s *Store) PutUnitSystem(system string) error {
+	if err := ValidateUnitSystem(system); err != nil {
+		return err
+	}
+	return s.PutSetting(settingUnitSystem, system)
+}
+
+// GetCurrency returns the persisted ISO 4217 currency code, or DefaultCurrency.
+func (s *Store) GetCurrency() (string, error) {
+	val, err := s.GetSetting(settingCurrency)
+	if err != nil {
+		return DefaultCurrency, err
+	}
+	if val == "" {
+		return DefaultCurrency, nil
+	}
+	return val, nil
+}
+
+// PutCurrency validates and persists the currency code (stored uppercase).
+func (s *Store) PutCurrency(code string) error {
+	if err := ValidateCurrency(code); err != nil {
+		return err
+	}
+	return s.PutSetting(settingCurrency, strings.ToUpper(code))
+}
+
+// ListSettings returns all user-configurable settings as key-value pairs.
+// Missing settings are filled with their defaults.
+func (s *Store) ListSettings() ([][2]string, error) {
+	unitSystem, err := s.GetUnitSystem()
+	if err != nil {
+		return nil, err
+	}
+	currency, err := s.GetCurrency()
+	if err != nil {
+		return nil, err
+	}
+	return [][2]string{
+		{settingUnitSystem, unitSystem},
+		{settingCurrency, currency},
+	}, nil
 }
 
 // AppendChatInput adds a prompt to the persistent history, deduplicating

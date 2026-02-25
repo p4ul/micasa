@@ -100,6 +100,97 @@ func TestLoadChatHistoryEmpty(t *testing.T) {
 	assert.Empty(t, history)
 }
 
+func TestGetUnitSystemDefault(t *testing.T) {
+	store := newTestStore(t)
+	val, err := store.GetUnitSystem()
+	require.NoError(t, err)
+	assert.Equal(t, DefaultUnitSystem, val)
+}
+
+func TestPutAndGetUnitSystem(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.PutUnitSystem("imperial"))
+	val, err := store.GetUnitSystem()
+	require.NoError(t, err)
+	assert.Equal(t, "imperial", val)
+
+	require.NoError(t, store.PutUnitSystem("metric"))
+	val, err = store.GetUnitSystem()
+	require.NoError(t, err)
+	assert.Equal(t, "metric", val)
+}
+
+func TestPutUnitSystemInvalid(t *testing.T) {
+	store := newTestStore(t)
+	err := store.PutUnitSystem("cubits")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid unit system")
+}
+
+func TestGetCurrencyDefault(t *testing.T) {
+	store := newTestStore(t)
+	val, err := store.GetCurrency()
+	require.NoError(t, err)
+	assert.Equal(t, DefaultCurrency, val)
+}
+
+func TestPutAndGetCurrency(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.PutCurrency("USD"))
+	val, err := store.GetCurrency()
+	require.NoError(t, err)
+	assert.Equal(t, "USD", val)
+
+	require.NoError(t, store.PutCurrency("eur"))
+	val, err = store.GetCurrency()
+	require.NoError(t, err)
+	assert.Equal(t, "EUR", val, "should store uppercase")
+}
+
+func TestPutCurrencyInvalid(t *testing.T) {
+	store := newTestStore(t)
+	err := store.PutCurrency("DOGECOIN")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid currency")
+}
+
+func TestListSettings(t *testing.T) {
+	store := newTestStore(t)
+
+	// Defaults when nothing is set.
+	settings, err := store.ListSettings()
+	require.NoError(t, err)
+	require.Len(t, settings, 2)
+	assert.Equal(t, "units.system", settings[0][0])
+	assert.Equal(t, DefaultUnitSystem, settings[0][1])
+	assert.Equal(t, "units.currency", settings[1][0])
+	assert.Equal(t, DefaultCurrency, settings[1][1])
+
+	// After setting values.
+	require.NoError(t, store.PutUnitSystem("imperial"))
+	require.NoError(t, store.PutCurrency("USD"))
+	settings, err = store.ListSettings()
+	require.NoError(t, err)
+	assert.Equal(t, "imperial", settings[0][1])
+	assert.Equal(t, "USD", settings[1][1])
+}
+
+func TestValidateUnitSystem(t *testing.T) {
+	assert.NoError(t, ValidateUnitSystem("metric"))
+	assert.NoError(t, ValidateUnitSystem("imperial"))
+	assert.Error(t, ValidateUnitSystem("cubits"))
+	assert.Error(t, ValidateUnitSystem(""))
+}
+
+func TestValidateCurrency(t *testing.T) {
+	for _, code := range ValidCurrencies {
+		assert.NoError(t, ValidateCurrency(code))
+	}
+	assert.NoError(t, ValidateCurrency("nzd"), "should accept lowercase")
+	assert.Error(t, ValidateCurrency("DOGECOIN"))
+	assert.Error(t, ValidateCurrency(""))
+}
+
 func TestShowDashboardDefaultsToTrue(t *testing.T) {
 	store := newTestStore(t)
 	show, err := store.GetShowDashboard()

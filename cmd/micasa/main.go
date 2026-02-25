@@ -32,6 +32,7 @@ type cli struct {
 	Maintenance maintenanceCmd   `cmd:""                    help:"Manage maintenance items."`
 	Projects    projectsCmd      `cmd:""                    help:"Manage projects."`
 	Quotes      quotesCmd        `cmd:""                    help:"Manage quotes."`
+	Settings    settingsCmd      `cmd:""                    help:"Manage unit and currency settings."`
 	Version     kong.VersionFlag `                          help:"Show version and exit."           name:"version"`
 }
 
